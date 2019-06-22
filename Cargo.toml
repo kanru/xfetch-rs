@@ -1,0 +1,24 @@
+[package]
+name = "xfetch"
+version = "0.1.0"
+description = "Optimal Probabilistic Cache Stampede Prevention"
+authors = ["Kan-Ru Chen <kanru@kanru.info>"]
+documentation = "https://docs.rs/xfetch"
+homepage = "https://github.com/kanru/xfetch-rs"
+repository = "https://github.com/kanru/xfetch-rs"
+readme = "README.md"
+keywords = ["cache", "xfetch"]
+categories = ["algorithms", "caching"]
+license = "MIT OR Apache-2.0"
+edition = "2018"
+
+[dependencies]
+rand = "0.6"
+
+[dev-dependencies]
+lru = "0.1"
+criterion = "0.2"
+
+[[bench]]
+name = "main"
+harness = false
