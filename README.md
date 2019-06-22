@@ -1,5 +1,9 @@
 # xfetch-rs
 
+[![Documentation](https://docs.rs/xfetch/badge.svg)](https://docs.rs/xfetch/) [![Crates.io](https://img.shields.io/crates/v/xfetch.svg)](https://crates.io/crates/xfetch)
+
+## About
+
 Rust crate for Optimal Probabilistic Cache Stampede Prevention aka XFetch algorithm
 
 ## Cache Stampede
