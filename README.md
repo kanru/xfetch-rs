@@ -4,30 +4,15 @@
 
 ## About
 
-Rust crate for Optimal Probabilistic Cache Stampede Prevention aka XFetch algorithm
+Rust crate for Optimal Probabilistic Cache Stampede Prevention aka
+XFetch algorithm
 
-## Cache Stampede
+It can be used in conjunction with cache containers like LRU cache to
+implement cache expiration and re-computation in parallel environment
+like multi-thread / multi-process computing.
 
-A cache stampede is a type of cascading failure that can occur when
-massively parallel computing systems with caching mechanisms come under
-very high load. This behaviour is sometimes also called dog-piling.
-
-Under normal load, cache misses will trigger a recomputation to refresh the
-cache. Other process or thread can continue as before.
-
-Under heavy load, cache misses may trigger multipre process / threads trying
-to refresh content thus add more loading to the resource source which the
-cache was meant to reduce the loading.
-
-Several approaches can be used to mitigate cache stampedes. The algorithm
-used here is proposed by Vattani, A.; Chierichetti, F.; Lowenstein, K.
-(2015) in the paper [Optimal Probabilistic Cache Stampede Prevention][vldb].
-
-The idea is any worker can volunteer to recompute the value before it
-expires. With a probability that increases when the cache entry approaches
-expiration, each worker may recompute the cache by making an independent
-decision. The effect of the cache stampede is mitigated as fewer workers
-will expire at the same time.
+It is very efficient because the algorithm does not need coordination
+(no locks) between processes.
 
 ## Examples
 
@@ -39,7 +24,7 @@ Create a single cache entry and test it's expiration:
 use xfetch::CacheEntry;
 use std::time::Duration;
 
-let entry = CacheEntry::new(|| {
+let entry = CacheEntry::builder(|| {
     expensive_computation()
 })
 .with_ttl(|value| {
@@ -70,10 +55,10 @@ fn recompute_value(n: u64) -> SomeValue {
 fn main() {
     let mut cache = LruCache::new(2);
 
-    cache.put("apple", CacheEntry::new(|| recompute_value(3))
+    cache.put("apple", CacheEntry::builder(|| recompute_value(3))
         .with_ttl(|v| Duration::from_millis(v.ttl))
         .build());
-    cache.put("banana", CacheEntry::new(|| recompute_value(2))
+    cache.put("banana", CacheEntry::builder(|| recompute_value(2))
         .with_ttl(|v| Duration::from_millis(v.ttl))
         .build());
 
@@ -81,7 +66,7 @@ fn main() {
         if !entry.is_expired() {
             assert_eq!(entry.get().value, 3);
         } else {
-            cache.put("apple", CacheEntry::new(|| recompute_value(3))
+            cache.put("apple", CacheEntry::builder(|| recompute_value(3))
                 .with_ttl(|v| Duration::from_millis(v.ttl))
                 .build());
         }

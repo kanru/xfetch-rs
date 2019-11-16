@@ -6,7 +6,7 @@ use std::time::Duration;
 use xfetch::CacheEntry;
 
 fn xfetch(value: u64) -> Option<u64> {
-    let entry = CacheEntry::new(|| value)
+    let entry = CacheEntry::builder(|| value)
         .with_ttl(|_| Duration::from_secs(120))
         .with_delta(|_| Duration::from_secs(10))
         .build();

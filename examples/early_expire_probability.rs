@@ -3,12 +3,13 @@ use std::time::{Duration, Instant};
 use xfetch::CacheEntry;
 
 fn main() {
-    let entry = CacheEntry::new(|| {
+    let entry = CacheEntry::builder(|| {
         thread::sleep(Duration::from_secs(1));
         42
     })
     .with_ttl(|_| Duration::from_secs(60))
     .build();
+
     let start = Instant::now();
     for _ in 0..120 {
         thread::sleep(Duration::from_millis(500));

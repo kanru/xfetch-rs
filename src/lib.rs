@@ -1,52 +1,12 @@
 #![deny(missing_docs)]
 //! This crate implements the XFetch probabilistic early expiration algorithm.
 //!
-//! # Cache Stampede
+//! It can be used in conjunction with cache containers like LRU cache
+//! to implement cache expiration and re-computation in parallel
+//! environment like multi-thread / multi-process computing.
 //!
-//! A cache stampede is a type of cascading failure that can occur when
-//! massively parallel computing systems with caching mechanisms come under
-//! very high load. This behaviour is sometimes also called dog-piling.
-//!
-//! Under normal load, cache misses will trigger a recomputation to refresh the
-//! cache. Other process or thread can continue as before.
-//!
-//! Under heavy load, cache misses may trigger multipre process / threads trying
-//! to refresh content thus add more loading to the resource source which the
-//! cache was meant to reduce the loading.
-//!
-//! Several approaches can be used to mitigate cache stampedes. The algorithm
-//! used here is proposed by Vattani, A.; Chierichetti, F.; Lowenstein, K.
-//! (2015) in the paper [Optimal Probabilistic Cache Stampede Prevention][vldb].
-//!
-//! The idea is any worker can volunteer to recompute the value before it
-//! expires. With a probability that increases when the cache entry approaches
-//! expiration, each worker may recompute the cache by making an independent
-//! decision. The effect of the cache stampede is mitigated as fewer workers
-//! will expire at the same time.
-//!
-//! The following is the algorithm pseudo code:
-//!
-//! ```ignore
-//! function XFetch(key, ttl; beta = 1)
-//!     value, delta, expiry <- cache_read(key)
-//!     if !value or time() - delta * beta * ln(rand()) >= expiry then
-//!         start <- time()
-//!         value <- recompute_value()
-//!         delta <- time() - start
-//!         cache_write(key, (value, delta), ttl)
-//!     end
-//!     return value
-//! end
-//! ```
-//!
-//! The parameter **beta** can be set to greater than `1.0` to favor earlier
-//! recomputation or lesser to favor later. The default `1.0` is optimal for
-//! most use cases.
-//!
-//! `rand()` is a random number in the range (0, 1].
-//!
-//! **delta** is the time required for the recomputation. If it takes longer to
-//! recompute then the algorithm will also favor earlier recomputation.
+//! It is very efficient because the algorithm does not need
+//! coordination (no locks) between processes.
 //!
 //! # Examples
 //!
@@ -58,7 +18,7 @@
 //! use xfetch::CacheEntry;
 //! use std::time::Duration;
 //!
-//! let entry = CacheEntry::new(|| {
+//! let entry = CacheEntry::builder(|| {
 //!     expensive_computation()
 //! })
 //! .with_ttl(|value| {
@@ -89,10 +49,10 @@
 //! fn main() {
 //!     let mut cache = LruCache::new(2);
 //!
-//!     cache.put("apple", CacheEntry::new(|| recompute_value(3))
+//!     cache.put("apple", CacheEntry::builder(|| recompute_value(3))
 //!         .with_ttl(|v| Duration::from_millis(v.ttl))
 //!         .build());
-//!     cache.put("banana", CacheEntry::new(|| recompute_value(2))
+//!     cache.put("banana", CacheEntry::builder(|| recompute_value(2))
 //!         .with_ttl(|v| Duration::from_millis(v.ttl))
 //!         .build());
 //!
@@ -100,13 +60,61 @@
 //!         if !entry.is_expired() {
 //!             assert_eq!(entry.get().value, 3);
 //!         } else {
-//!             cache.put("apple", CacheEntry::new(|| recompute_value(3))
+//!             cache.put("apple", CacheEntry::builder(|| recompute_value(3))
 //!                 .with_ttl(|v| Duration::from_millis(v.ttl))
 //!                 .build());
 //!         }
 //!     }
 //! }
 //! ```
+//!
+//! # The Algorithm
+//!
+//! Cascading failure can occur when massively parallel computing
+//! systems with caching mechanisms come under very high load.
+//!
+//! Under normal load, cache misses will trigger a recomputation to refresh the
+//! cache. Other process or thread can continue as before.
+//!
+//! Under heavy load, cache misses may trigger multipre process / threads trying
+//! to refresh content thus add more loading to the resource source which the
+//! cache was meant to reduce the loading.
+//!
+//! Several approaches can be used to mitigate this issue. The algorithm
+//! used here is proposed by Vattani, A.; Chierichetti, F.; Lowenstein, K.
+//! (2015) in the paper [Optimal Probabilistic Cache Stampede Prevention][vldb].
+//!
+//! The idea is any worker can volunteer to recompute the value before it
+//! expires. With a probability that increases when the cache entry approaches
+//! expiration, each worker may recompute the cache by making an independent
+//! decision. The effect of the cache stampede is mitigated as fewer workers
+//! will expire at the same time.
+//!
+//! The following is the algorithm pseudo code:
+//!
+//! ```ignore
+//! function XFetch(key, ttl; beta = 1)
+//!     value, delta, expiry <- cache_read(key)
+//!     if !value or time() - delta * beta * ln(rand()) >= expiry then
+//!         start <- time()
+//!         value <- recompute_value()
+//!         delta <- time() - start
+//!         cache_write(key, (value, delta), ttl)
+//!     end
+//!     return value
+//! end
+//! ```
+//!
+//! # Parameters
+//!
+//! The parameter **beta** can be set to greater than `1.0` to favor earlier
+//! recomputation or lesser to favor later. The default `1.0` is optimal for
+//! most use cases.
+//!
+//! `rand()` is a random number in the range (0, 1].
+//!
+//! **delta** is the time required for the recomputation. If it takes longer to
+//! recompute then the algorithm will also favor earlier recomputation.
 //!
 //! # References
 //!
@@ -135,15 +143,22 @@ pub struct CacheEntryBuilder<T> {
 }
 
 impl<T> CacheEntryBuilder<T> {
-    /// Set the beta value.
+    /// Return a new [CacheEntryBuilder](struct.CacheEntryBuilder.html).
     ///
-    /// Beta value > `1.0` favors more eager early expiration, value < `1.0`
-    /// favors lazier early expiration.
-    ///
-    /// The default value `1.0` is usually the optimal value for most use cases.
-    pub fn with_beta(mut self, beta: f32) -> CacheEntryBuilder<T> {
-        self.beta = beta;
-        self
+    /// This method takes a closure which should return the value to be cached.
+    pub fn new<F>(f: F) -> CacheEntryBuilder<T>
+    where
+        F: FnOnce() -> T,
+    {
+        let start = Instant::now();
+        let value = f();
+        let recompute_time = start.elapsed();
+        CacheEntryBuilder {
+            value,
+            delta: recompute_time,
+            beta: DEFAULT_BETA,
+            expiry: None,
+        }
     }
 
     /// Set the delta.
@@ -178,6 +193,17 @@ impl<T> CacheEntryBuilder<T> {
         self
     }
 
+    /// Set the beta value.
+    ///
+    /// Beta value > `1.0` favors more eager early expiration, value < `1.0`
+    /// favors lazier early expiration.
+    ///
+    /// The default value `1.0` is usually the optimal value for most use cases.
+    pub fn with_beta(mut self, beta: f32) -> CacheEntryBuilder<T> {
+        self.beta = beta;
+        self
+    }
+
     /// Return a new [CacheEntry](struct.CacheEntry.html) with the supplied
     /// parameters.
     pub fn build(self) -> CacheEntry<T> {
@@ -203,7 +229,7 @@ impl<T> CacheEntryBuilder<T> {
 /// use std::time::Duration;
 /// use xfetch::CacheEntry;
 ///
-/// let entry = CacheEntry::new(|| 42)
+/// let entry = CacheEntry::builder(|| 42)
 ///     .with_ttl(|_| Duration::from_secs(10))
 ///     .build();
 /// ```
@@ -221,22 +247,14 @@ impl<T> CacheEntry<T> {
     /// Return a new [CacheEntryBuilder](struct.CacheEntryBuilder.html).
     ///
     /// This method takes a closure which should return the value to be cached.
-    pub fn new<F>(f: F) -> CacheEntryBuilder<T>
+    pub fn builder<F>(f: F) -> CacheEntryBuilder<T>
     where
         F: FnOnce() -> T,
     {
-        let start = Instant::now();
-        let value = f();
-        let recompute_time = start.elapsed();
-        CacheEntryBuilder {
-            value,
-            delta: recompute_time,
-            beta: DEFAULT_BETA,
-            expiry: None,
-        }
+        CacheEntryBuilder::new(f)
     }
 
-    fn is_expired_with_rng(&self, rng: &mut RngCore) -> bool {
+    fn is_expired_with_rng(&self, rng: &mut dyn RngCore) -> bool {
         match self.expiry {
             Some(expiry) => {
                 let now = Instant::now();
@@ -283,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_new_entry() {
-        let entry = CacheEntry::new(|| ()).build();
+        let entry = CacheEntry::builder(|| ()).build();
         assert_eq!(*entry.get(), ());
         assert_eq!(entry.into_inner(), ());
         assert!(entry.is_eternal());
@@ -292,7 +310,7 @@ mod tests {
 
     #[test]
     fn test_new_entry_with_ttl() {
-        let entry = CacheEntry::new(|| ())
+        let entry = CacheEntry::builder(|| ())
             .with_ttl(|_| Duration::from_secs(60))
             .build();
         assert_eq!(*entry.get(), ());
@@ -301,7 +319,7 @@ mod tests {
 
     #[test]
     fn test_new_entry_with_beta() {
-        let entry = CacheEntry::new(|| ()).with_beta(0.9).build();
+        let entry = CacheEntry::builder(|| ()).with_beta(0.9).build();
         assert_eq!(*entry.get(), ());
         assert_eq!(entry.beta, 0.9);
     }
@@ -309,7 +327,7 @@ mod tests {
     #[test]
     fn test_early_expiry() {
         let mut zeros = StepRng::new(0, 0);
-        let entry = CacheEntry::new(|| ())
+        let entry = CacheEntry::builder(|| ())
             .with_delta(|_| Duration::from_secs(10))
             .with_ttl(|_| Duration::from_secs(120))
             .build();
@@ -319,7 +337,7 @@ mod tests {
     #[test]
     fn test_no_early_expiry() {
         let mut max = StepRng::new(!0, 0);
-        let entry = CacheEntry::new(|| ())
+        let entry = CacheEntry::builder(|| ())
             .with_delta(|_| Duration::from_secs(10))
             .with_ttl(|_| Duration::from_secs(120))
             .build();
