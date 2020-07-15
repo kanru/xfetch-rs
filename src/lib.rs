@@ -46,24 +46,22 @@
 //!     SomeValue { value: n, ttl: 10000 }
 //! }
 //!
-//! fn main() {
-//!     let mut cache = LruCache::new(2);
+//! let mut cache = LruCache::new(2);
 //!
-//!     cache.put("apple", CacheEntry::builder(|| recompute_value(3))
-//!         .with_ttl(|v| Duration::from_millis(v.ttl))
-//!         .build());
-//!     cache.put("banana", CacheEntry::builder(|| recompute_value(2))
-//!         .with_ttl(|v| Duration::from_millis(v.ttl))
-//!         .build());
+//! cache.put("apple", CacheEntry::builder(|| recompute_value(3))
+//!     .with_ttl(|v| Duration::from_millis(v.ttl))
+//!     .build());
+//! cache.put("banana", CacheEntry::builder(|| recompute_value(2))
+//!     .with_ttl(|v| Duration::from_millis(v.ttl))
+//!     .build());
 //!
-//!     if let Some(entry) = cache.get(&"apple") {
-//!         if !entry.is_expired() {
-//!             assert_eq!(entry.get().value, 3);
-//!         } else {
-//!             cache.put("apple", CacheEntry::builder(|| recompute_value(3))
-//!                 .with_ttl(|v| Duration::from_millis(v.ttl))
-//!                 .build());
-//!         }
+//! if let Some(entry) = cache.get(&"apple") {
+//!     if !entry.is_expired() {
+//!         assert_eq!(entry.get().value, 3);
+//!     } else {
+//!         cache.put("apple", CacheEntry::builder(|| recompute_value(3))
+//!             .with_ttl(|v| Duration::from_millis(v.ttl))
+//!             .build());
 //!     }
 //! }
 //! ```
