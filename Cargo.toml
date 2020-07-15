@@ -1,22 +1,22 @@
 [package]
 name = "xfetch"
-version = "1.0.0"
-description = "Optimal Probabilistic Cache Stampede Prevention"
+version = "1.0.1"
+description = "Optimal probabilistic cache refresh algorithm"
 authors = ["Kan-Ru Chen <kanru@kanru.info>"]
 documentation = "https://docs.rs/xfetch"
 homepage = "https://github.com/kanru/xfetch-rs"
 repository = "https://github.com/kanru/xfetch-rs"
 readme = "README.md"
-keywords = ["cache", "xfetch"]
+keywords = ["cache", "xfetch", "lru", "distributed"]
 categories = ["algorithms", "caching"]
 license = "MIT OR Apache-2.0"
 edition = "2018"
 
 [dependencies]
-rand = "0.7.2"
+rand = "0.7.3"
 
 [dev-dependencies]
-lru = "0.4.0"
+lru = "0.5.3"
 criterion = "0.3.0"
 
 [[bench]]
