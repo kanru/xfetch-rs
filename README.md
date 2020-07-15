@@ -1,6 +1,6 @@
 # xfetch-rs
 
-[![Documentation](https://docs.rs/xfetch/badge.svg)](https://docs.rs/xfetch/) [![Crates.io](https://img.shields.io/crates/v/xfetch.svg)](https://crates.io/crates/xfetch)
+[![Documentation](https://docs.rs/xfetch/badge.svg)](https://docs.rs/xfetch/) [![Crates.io](https://img.shields.io/crates/v/xfetch.svg)](https://crates.io/crates/xfetch) [![Test](https://github.com/kanru/xfetch-rs/workflows/Test/badge.svg)](https://github.com/kanru/xfetch-rs/actions?query=workflow%3A%22Test%22)
 
 ## About
 
